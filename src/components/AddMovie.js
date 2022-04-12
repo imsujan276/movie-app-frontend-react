@@ -1,5 +1,5 @@
 
-import React, {Component, Fragment} from "react";
+import React, { Fragment, useEffect, useState} from "react";
 import './AddMovie.css'
 import Input from "./form-components/Input";
 import TextArea from "./form-components/TextArea";
@@ -9,48 +9,71 @@ import { Link } from "react-router-dom";
 import { confirmAlert } from 'react-confirm-alert';
 import 'react-confirm-alert/src/react-confirm-alert.css';
 
-export default class AddMovie extends Component{
+function AddMovie(props) {
 
-    constructor(props){
-        super(props);
-        this.state = {
-            movie: {
-                id: 0,
-                title:"",
-                release_date:"",
-                run_time:"",
-                mpaa_rating:"",
-                rating:"",
-                description:"",
-            },
-            mpaaOptions: [
-                {id:"G", value:"G"},
-                {id:"PG", value:"PG"},
-                {id:"PG-13", value:"PG-13"},
-                {id:"R", value:"R"},
-                {id:"NC17", value:"NC17"},
-            ],
-            isLoaded: false,
-            error: null,
-            form_errors: [],
-            alert: {
-                type: "d-none",
-                message: "",
+    const [movie, setMovie] = useState({});
+    const [error, setError] = useState(null);
+    const [errors, setErrors] = useState([]);
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [alert, setAlert] = useState({ type: "d-none", message: "" });
+    const mpaaOptions = [
+        {id:"G", value:"G"},
+        {id:"PG", value:"PG"},
+        {id:"PG-13", value:"PG-13"},
+        {id:"R", value:"R"},
+        {id:"NC17", value:"NC17"},
+    ];
+
+    useEffect(()=> {
+        if(props.jwt === ""){
+            let t = window.localStorage.getItem("jwt");
+            if (!t){
+                props.history.push({pathname:"/login"});
+                return;
+            }else{
+                props.handleJwtChange(JSON.parse(t))
             }
         }
+        const id = props.match.params.id;
+        console.log(id);
+        if(id > 0){
+            fetch(`${process.env.REACT_APP_API_URL}/v1/movie/`+id)
+            .then((response)=> {
+                if(response.status !== 200){
+                    setError("Invalid response Code: ", response.status);
+                }else{
+                    setError(null)
+                }
+                return response.json();
+            })
+            .then((json) =>{
+                const releaseDate = new Date(json.movie.release_date);
+                json.movie.release_date = releaseDate.toISOString().split("T")[0];
+                setMovie(json.movie);
+                setIsLoaded(true);
+            });
+        }else{
+            setIsLoaded(true);
+        }
+    }, [props]);
 
-        this.handleChange = this.handleChange.bind(this)
-        this.handleSubmit = this.handleSubmit.bind(this)
+    const handleChange = (event) => {
+        let value = event.target.value;
+        let name = event.target.name;
+        setMovie({
+            ...movie, 
+            [name]: value,
+        });
     }
 
-    handleSubmit = (ev) => {
+    const handleSubmit = (ev) => {
         ev.preventDefault();
         // client side validation
         let form_errors = [];
-        if(this.state.movie.title === ""){
+        if(movie.title === ""){
             form_errors.push("title")
         }
-        this.setState({form_errors:form_errors})
+        setErrors(form_errors);
         if(form_errors.length > 0){
             return false;
         }
@@ -58,8 +81,7 @@ export default class AddMovie extends Component{
         const payload = Object.fromEntries(data.entries())
         const myHeaders = new Headers();
         myHeaders.append("Content-Type", "application/json");
-        myHeaders.append("Authorization", "Bearer "+ this.props.jwt);
-
+        myHeaders.append("Authorization", "Bearer "+ props.jwt);
         const requestOptions = {
             method: 'POST',
             body: JSON.stringify(payload),
@@ -69,91 +91,16 @@ export default class AddMovie extends Component{
             .then((response)=> response.json())
             .then(resp =>{
                 if(resp.error){
-                    this.setState({
-                        alert: {
-                            type: "alert-danger",
-                            message: resp.error.message,
-                        }
-                    })
+                    setAlert({ type: "alert-danger", message: resp.error.message, });
                 }else{
-                    this.props.history.push({
-                        pathname: "/admin"
-                    })
+                    props.history.push({ pathname: "/admin" })
                 }
             }, (error) => {
-                    this.setState({
-                        alert: {
-                            type: "alert-danger",
-                            message: error.message,
-                        }
-                    })
-            })
-
-    }
-
-    handleChange = (event) => {
-        let value = event.target.value;
-        let name = event.target.name;
-        this.setState((prevState)=> ({
-            movie: {
-                ...prevState.movie,
-                [name]:value
-            }
-        }))
-    }
-
-    hasError(key) {
-        return this.state.form_errors.indexOf(key) !== -1;
-    }
-
-    componentDidMount(){
-        if(this.props.jwt === ""){
-            let t = window.localStorage.getItem("jwt");
-            if (!t){
-                this.props.history.push({pathname:"/login"});
-                return
-            }else{
-                this.props.handleJwtChange(JSON.parse(t))
-            }
-        }
-        const id = this.props.match.params.id;
-        if(id > 0){
-            fetch(`${process.env.REACT_APP_API_URL}/v1/movie/`+this.props.match.params.id)
-            .then((response)=> {
-                if(response.status !== "200"){
-                    let err = Error;
-                    err.message = "Invalid Resposne Code: "+response.status;
-                    this.setState({ error: err })
-                }
-                return response.json();
-            })
-            .then((json) =>{
-                const releaseDate = new Date(json.movie.release_date)
-                this.setState({
-                    movie: {
-                        id: json.movie.id,
-                        title:json.movie.title,
-                        release_date:releaseDate.toISOString().split("T")[0],
-                        run_time:json.movie.run_time,
-                        mpaa_rating:json.movie.mpaa_rating,
-                        rating:json.movie.rating,
-                        description:json.movie.description,
-                    },
-                    isLoaded: true,
-                },
-                (error) => {
-                    this.setState({
-                        isLoaded: true,
-                        error: error
-                    });
-                });
+                setAlert({ type: "alert-danger", message: error.message, });
             });
-        }else{
-            this.setState({isLoaded:true})
-        }
     }
 
-    confirmDelete = (e) => {
+    const confirmDelete = (e) => {
         confirmAlert({
             title: 'Delete Movie?',
             message: 'Are you sure?',
@@ -163,26 +110,20 @@ export default class AddMovie extends Component{
                 onClick: () => {
                     const myHeaders = new Headers();
                     myHeaders.append("Content-Type", "application/json");
-                    myHeaders.append("Authorization", "Bearer "+ this.props.jwt);
+                    myHeaders.append("Authorization", "Bearer "+ props.jwt);
                     
-                    fetch(`${process.env.REACT_APP_API_URL}/v1/admin/movie/delete/`+this.state.movie.id, 
+                    fetch(`${process.env.REACT_APP_API_URL}/v1/admin/movie/delete/`+movie.id, 
                         {method:"GET", headers:myHeaders}
                     )
                     .then(response => response.json)
                     .then(data => {
                         if(data.error){
-                            this.setState({
-                                alert: {type: "alert-danger", message: data.error.message}
-                            })
+                            setAlert({ type: "alert-danger", message: data.error.message, });
                         }else{
-                            this.props.history.push({
-                                pathname: "/admin"
-                            })
+                            props.history.push({ pathname: "/admin" })
                         }
                     }, (error)=> {
-                        this.setState({
-                            alert: {type: "alert-danger", message: error}
-                        })
+                        setAlert({ type: "alert-danger", message: error.message, });
                     })
                 }
               },
@@ -196,88 +137,90 @@ export default class AddMovie extends Component{
           });
     }
 
-    render(){
-        let {movie, isLoaded, error, alert} = this.state
+    const hasError = (key) => {
+        return errors.indexOf(key) !== -1;
+    }
 
-        if(error){
-            return <p> Error: {error.message}</p>
-        }else if(!isLoaded){
-            return <p> Loading...</p>
-        }else{
-            return(
-                <Fragment>
-                    <h2>Add/Edit Movie</h2>
-                    <Alert 
-                        alertType={alert.type} 
-                        alertMessage={alert.message} />
+    if(error != null){
+        return <p> Error: {error.message}</p>
+    }else if(!isLoaded){
+        return <p> Loading...</p>
+    }else{
+        return(
+            <Fragment>
+                <h2>Add/Edit Movie</h2>
+                <Alert 
+                    alertType={alert.type} 
+                    alertMessage={alert.message} />
+                <hr/>
+
+                <form onSubmit={handleSubmit}>
+                    <input type="hidden" name="id" id="id" value={movie.id}/>
+                    <Input
+                        title={"Title"}
+                        name={"title"}
+                        type={"text"}
+                        value={movie.title}
+                        handleChange={handleChange}
+                        className= {hasError("title") ? "is-invalid" : ""}
+                        errorDiv= {hasError("title") ? "text-danger" : "d-none"}
+                        errorMsg = {"Please enter a title"}
+                    />
+                    <Input
+                        title={"Release Date"}
+                        name={"release_date"}
+                        type={"date"}
+                        value={movie.release_date}
+                        handleChange={handleChange}
+                    />
+                    <Input
+                        title={"Runtime"}
+                        name={"run_time"}
+                        type={"text"}
+                        value={movie.run_time}
+                        handleChange={handleChange}
+                    />
+                    <Select 
+                        title= {"MPAA Rating"}
+                        name= {"mpaa_rating"}
+                        options = {mpaaOptions}
+                        value = {movie.mpaa_rating}
+                        onChange = {handleChange}
+                        placeholder = {"Choose.."}
+                    />
+
+                    <Input
+                        title={"Rating"}
+                        name={"rating"}
+                        type={"text"}
+                        value={movie.rating}
+                        handleChange={handleChange}
+                    />
+
+                    <TextArea
+                        title={"Description"}
+                        name={"description"}
+                        value={movie.description}
+                        handleChange={handleChange}
+                    />
+
                     <hr/>
 
-                    <form onSubmit={this.handleSubmit}>
-                        <input type="hidden" name="id" id="id" value={movie.id}/>
-                        <Input
-                            title={"Title"}
-                            name={"title"}
-                            type={"text"}
-                            value={movie.title}
-                            handleChange={this.handleChange}
-                            className= {this.hasError("title") ? "is-invalid" : ""}
-                            errorDiv= {this.hasError("title") ? "text-danger" : "d-none"}
-                            errorMsg = {"Please enter a title"}
-                        />
-                        <Input
-                            title={"Release Date"}
-                            name={"release_date"}
-                            type={"date"}
-                            value={movie.release_date}
-                            handleChange={this.handleChange}
-                        />
-                        <Input
-                            title={"Runtime"}
-                            name={"run_time"}
-                            type={"text"}
-                            value={movie.run_time}
-                            handleChange={this.handleChange}
-                        />
-                        <Select 
-                            title= {"MPAA Rating"}
-                            name= {"mpaa_rating"}
-                            options = {this.state.mpaaOptions}
-                            value = {movie.mpaa_rating}
-                            onChange = {this.handleChange}
-                            placeholder = {"Choose.."}
-                        />
+                    <button className="btn btn-primary">Save</button>
+                    <Link to="/admin" className="btn btn-warning ms-1">
+                        Cancel
+                    </Link>
+                    {movie.id > 0 && (
+                        <a href="#!" onClick={()=>confirmDelete()}
+                            className="btn btn-danger ms-1">
+                                Delete
+                            </a>
+                    )}
+                </form>
 
-                        <Input
-                            title={"Rating"}
-                            name={"rating"}
-                            type={"text"}
-                            value={movie.rating}
-                            handleChange={this.handleChange}
-                        />
-
-                        <TextArea
-                            title={"Description"}
-                            name={"description"}
-                            value={movie.description}
-                            handleChange={this.handleChange}
-                        />
-
-                        <hr/>
-
-                        <button className="btn btn-primary">Save</button>
-                        <Link to="/admin" className="btn btn-warning ms-1">
-                            Cancel
-                        </Link>
-                        {movie.id > 0 && (
-                            <a href="#!" onClick={()=> this.confirmDelete()}
-                                className="btn btn-danger ms-1">
-                                    Delete
-                                </a>
-                        )}
-                    </form>
-
-                </Fragment>
-            );
-        }
+            </Fragment>
+        );
     }
+
 }
+export default AddMovie;

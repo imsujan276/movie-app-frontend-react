@@ -1,43 +1,31 @@
-import React, {Component, Fragment} from "react";
+import React, { Fragment, useState} from "react";
 import Input from "./form-components/Input";
 import Alert from "./ui-components/Alert";
 
-export default class Login extends Component {
-    constructor(props){
-        super(props);
-        this.state = {
-            email:"",
-            password:"",
-            error:null,
-            form_errors:[],
-            alert: {
-                type: "d-none",
-                message:"" 
-            }
-        }
-        this.handleChange = this.handleChange.bind(this);
-        this.hanldeSubmit = this.hanldeSubmit.bind(this);
+function Login(props) {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [errors, setErrors] = useState([]);
+    const [alert, setAlert] = useState({ type: "d-none", message: "" });
+
+    const handleEmail = (ev) => {
+        setEmail(ev.target.value);
     }
 
-    handleChange = (ev) => {
-        let value = ev.target.value;
-        let name = ev.target.name;
-        this.setState(prestate => ({
-            ...prestate,
-            [name]: value,
-        }))
+    const handlePassword = (ev) => {
+        setPassword(ev.target.value);
     }
 
-    hanldeSubmit = (ev) => {
+    const hanldeSubmit = (ev) => {
         ev.preventDefault();
         let form_errors = [];
-        if(this.state.email === ""){
+        if(email === ""){
             form_errors.push("email")
         }
-        if(this.state.password === ""){
+        if(password === ""){
             form_errors.push("password")
         }
-        this.setState({form_errors:form_errors})
+        setErrors(form_errors);
         if(form_errors.length > 0){
             return false;
         }
@@ -51,62 +39,51 @@ export default class Login extends Component {
             .then((response)=> response.json())
             .then(data =>{
                 if(data.error){
-                    this.setState({
-                        alert: {
-                            type: "alert-danger",
-                            message: data.error.message,
-                        }
-                    })
+                    setAlert({ type: "alert-danger", message: data.error.message, });
                 }else{
                     let j = Object.values(data)[0];
-                    this.handleJwtChange(j)
+                    handleJwtChange(j)
                     window.localStorage.setItem("jwt", JSON.stringify(j))
-                    this.props.history.push({
+                   props.history.push({
                         pathname: "/admin"
-                    })
+                    });
                 }
             }, (error) => {
-                    this.setState({
-                        alert: {
-                            type: "alert-danger",
-                            message: error.message,
-                        }
-                    })
+                setAlert({ type: "alert-danger", message: error.message, });
             })
 
     }
 
-    handleJwtChange(jwt) {
-        this.props.handleJwtChange(jwt)
+    const handleJwtChange = (jwt) => {
+        props.handleJwtChange(jwt)
     }
 
-    hasError(key) {
-        return this.state.form_errors.indexOf(key) !== -1;
+    const hasError = (key) => {
+        return errors.indexOf(key) !== -1;
     }
 
-    render() {
-        return(
-            <Fragment>
+    return (
+        <Fragment>
                 <h2>Login</h2>
-                <Alert alertType={this.state.alert.type} alertMessage={this.state.alert.message}/>
+                <Alert alertType={alert.type} alertMessage={alert.message}/>
 
-                <form className="pt-3" onSubmit={this.hanldeSubmit}>
+                <form className="pt-3" onSubmit={hanldeSubmit}>
                     <Input
                         title={"Email"}
                         name={"email"}
                         type={"email"}
-                        handleChange={this.handleChange}
-                        className= {this.hasError("email") ? "is-invalid" : ""}
-                        errorDiv= {this.hasError("email") ? "text-danger" : "d-none"}
+                        handleChange={handleEmail}
+                        className= {hasError("email") ? "is-invalid" : ""}
+                        errorDiv= {hasError("email") ? "text-danger" : "d-none"}
                         errorMsg = {"* Required"}
                     />
                     <Input
                         title={"Password"}
                         name={"password"}
                         type={"password"}
-                        handleChange={this.handleChange}
-                        className= {this.hasError("password") ? "is-invalid" : ""}
-                        errorDiv= {this.hasError("password") ? "text-danger" : "d-none"}
+                        handleChange={handlePassword}
+                        className= {hasError("password") ? "is-invalid" : ""}
+                        errorDiv= {hasError("password") ? "text-danger" : "d-none"}
                         errorMsg = {"* Required"}
                     />
                     <button className="btn btn-primary">Login</button>
@@ -115,6 +92,9 @@ export default class Login extends Component {
                     Demo user: test@gmail.com | password123
                 </center>
             </Fragment>
-        );
-    }
+    );
+
+
 }
+
+export default Login;

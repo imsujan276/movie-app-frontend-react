@@ -1,51 +1,41 @@
-import React, {Component, Fragment}  from "react";
+import React, {Fragment, useEffect, useState}  from "react";
 
-export default class OneMovie extends Component {
-    state = {
-        movie: {},
-        isLoaded: false,
-        error: null,
+
+function OneMovie(props){
+    const [movie, setMovie] = useState({});
+    const [error, setError] = useState(null);
+    const [isLoaded, setIsLoaded] = useState(false);
+
+    const movieId = props.match.params.id;
+
+    useEffect(()=> {
+        fetch(`${process.env.REACT_APP_API_URL}/v1/movie/`+movieId)
+        .then((response)=> {
+            if(response.status !== 200){
+                setError("Invalid response Code: ", response.status);
+            }else{
+                setError(null)
+            }
+            return response.json();
+        })
+        .then((json) =>{
+            setMovie(json.movie);
+            setIsLoaded(true);
+        });
+    }, [movieId]);
+
+
+    if(movie.genres){
+        movie.genres = Object.values(movie.genres)
+    }else{
+        movie.genres = []
     }
 
-    componentDidMount(){
-
-            fetch(`${process.env.REACT_APP_API_URL}/v1/movie/`+this.props.match.params.id)
-            .then((response)=> {
-                if(response.status !== "200"){
-                    let err = Error;
-                    err.message = "Invalid Resposne Code: "+response.status;
-                    this.setState({ error: err })
-                }
-                return response.json();
-            })
-            .then((json) =>{
-                this.setState({
-                    movie: json.movie,
-                    isLoaded: true,
-                },
-                (error) => {
-                    this.setState({
-                        isLoaded: true,
-                        error: error
-                    });
-                });
-            });
-    }
-
-    render(){
-        const {movie, isLoaded, error} = this.state
-
-        if(movie.genres){
-            movie.genres = Object.values(movie.genres)
-        }else{
-            movie.genres = []
-        }
-
-        if(error){
-            return <p> Error: {error.message}</p>
-        }else if(!isLoaded){
-            return <p> Loading...</p>
-        }else{
+    if(error != null){
+        return <p> Error: {error.message}</p>
+    }else if(!isLoaded){
+        return <p> Loading...</p>
+    }else{
         return (
             <Fragment>
                 <h2> Movie: {movie.title} {movie.year}</h2>
@@ -59,7 +49,7 @@ export default class OneMovie extends Component {
                             {m}
                         </span>
                     ))
-                 }
+                }
                 </div>
 
                 <div className="clearfix"></div>
@@ -88,6 +78,6 @@ export default class OneMovie extends Component {
                 </table>
             </Fragment>
         );
-        }
     }
 }
+export default OneMovie;

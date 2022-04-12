@@ -1,65 +1,52 @@
-import React, {Component, Fragment}  from "react";
+import React, {Fragment, useEffect, useState}  from "react";
 import { Link } from "react-router-dom";
 
-export default class OneGenre extends Component {
-    state = {
-        genre_name: '',
-        movies: {},
-        isLoaded: false,
-        error: null,
-    }
+function OneGenre(props){
+    const [genreName, setGenreName] = useState("");
+    const [movies, setMovies] = useState([]);
+    const [error, setError] = useState(null);
+    const [isLoaded, setIsLoaded] = useState(false);
 
-    componentDidMount(){
-        this.setState({
-            genre_name: this.props.location.genreName,
-        });
-        fetch(`${process.env.REACT_APP_API_URL}/v1/movies/`+this.props.match.params.id)
+    const movieId = props.match.params.id;
+
+    useEffect(()=> {
+        setGenreName(props.location.genreName);
+        fetch(`${process.env.REACT_APP_API_URL}/v1/movies/`+movieId)
             .then((response)=> {
-                if(response.status !== "200"){
-                    let err = Error;
-                    err.message = "Invalid Resposne Code: "+response.status;
-                    this.setState({ error: err })
+                if(response.status !== 200){
+                    setError("Invalid response Code: ", response.status);
+                }else{
+                    setError(null)
                 }
                 return response.json();
             })
             .then((json) =>{
-                this.setState({
-                    movies: json.movies,
-                    isLoaded: true,
-                },
-                (error) => {
-                    this.setState({
-                        isLoaded: true,
-                        error: error
-                    });
-                });
+                setMovies(json.movies);
+                setIsLoaded(true);
             });
+    }, [movieId, props.location.genreName]);
+
+
+    if(movies == null){
+        setMovies([]);
     }
-
-    render() {
-        let {genre_name, movies, isLoaded, error} = this.state
-
-        if(!movies){
-            movies = [];
-        }
-        if(error){
-            return <p> Error: {error.message}</p>
-        }else if(!isLoaded){
-            return <p> Loading...</p>
-        }else{
-            return (
-                <Fragment>
-                    <h2> Genre: {genre_name}</h2>
-                    <div className="list-group">
-                        {movies.map(m => (
-                            <Link to={`/movie/${m.id}`} className="list-group-item list-group-item-action">
-                                {m.title}
-                            </Link>
-                        ))}
-                    </div>
-                </Fragment>
-            );
-        }
-        
+    if(error != null){
+        return <p> Error: {error.message}</p>
+    }else if(!isLoaded){
+        return <p> Loading...</p>
+    }else{
+        return (
+            <Fragment>
+                <h2> Genre: {genreName}</h2>
+                <div className="list-group">
+                    {movies.map(m => (
+                        <Link to={`/movie/${m.id}`} className="list-group-item list-group-item-action">
+                            {m.title}
+                        </Link>
+                    ))}
+                </div>
+            </Fragment>
+        );
     }
 }
+export default OneGenre;
